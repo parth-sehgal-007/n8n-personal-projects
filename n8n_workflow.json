@@ -1,0 +1,266 @@
+{
+  "name": "My workflow 9",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-node",
+      "name": "When clicking Test workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        140,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-3.5-turbo",
+        "messages": {
+          "chatInput": [
+            {
+              "role": "system",
+              "content": "You are an AI assistant"
+            }
+          ]
+        }
+      },
+      "id": "ai-agent-node",
+      "name": "AI Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        280,
+        260
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "openai-chat-model",
+      "name": "OpenAI Chat Model",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        240,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "your-sheet-id",
+        "sheetName": "Sheet1",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        }
+      },
+      "id": "add-to-sheet-node",
+      "name": "Add To Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        430,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.videoservice.com/create",
+        "method": "POST"
+      },
+      "id": "get-video-idea-node",
+      "name": "Get Video Idea",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        530,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.videoservice.com/generate",
+        "method": "POST"
+      },
+      "id": "create-video-node",
+      "name": "Create Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        620,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 300,
+        "unit": "seconds"
+      },
+      "id": "wait-node",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        420,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.videoservice.com/status",
+        "method": "GET"
+      },
+      "id": "get-video-node",
+      "name": "Get Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        520,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-node",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        620,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "your-sheet-id",
+        "sheetName": "Videos",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {}
+        }
+      },
+      "id": "add-videos-to-sheet-node",
+      "name": "Add Videos To Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        760,
+        350
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking Test workflow": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Add To Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add To Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Video Idea",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Idea": {
+      "main": [
+        [
+          {
+            "node": "Create Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Get Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Add Videos To Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-06-22T00:00:00.000Z",
+  "versionId": "1"
+}

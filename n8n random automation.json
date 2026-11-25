@@ -1,0 +1,519 @@
+{
+  "meta": {
+    "instanceId": "your-instance-id"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "trigger-daily",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Trending controversial topics with high search volume\nconst trendingTopics = [\n  \"AI replacing jobs 2024\",\n  \"Celebrity scandal exposed\",\n  \"Government conspiracy theories\",\n  \"Social media addiction danger\",\n  \"Climate change debate\",\n  \"Cryptocurrency crash prediction\",\n  \"Tech billionaire controversy\",\n  \"Political election fraud claims\",\n  \"Vaccine side effects debate\",\n  \"UFO government disclosure\",\n  \"Fast fashion environmental impact\",\n  \"Social credit system coming\",\n  \"Big tech censorship exposed\",\n  \"Economic collapse warning\",\n  \"Celebrity death hoax\"\n];\n\nconst randomTopic = trendingTopics[Math.floor(Math.random() * trendingTopics.length)];\n\nreturn {\n  selectedTopic: randomTopic,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "topic-selector",
+      "name": "Topic Selector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "search",
+        "operation": "get",
+        "q": "={{ $json.selectedTopic }}",
+        "maxResults": 10,
+        "part": [
+          "snippet"
+        ],
+        "order": "relevance",
+        "publishedAfter": "2024-01-01T00:00:00Z"
+      },
+      "id": "youtube-research",
+      "name": "YouTube Research",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "your-youtube-credentials",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "options": {
+          "queryParameters": {
+            "engine": "google_trends",
+            "q": "={{ $('Topic Selector').item.json.selectedTopic }}",
+            "api_key": "your-serpapi-key"
+          }
+        }
+      },
+      "id": "trend-analysis",
+      "name": "Trend Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "messageType": "multipleMessages",
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a viral YouTube content creator specializing in controversial topics that drive engagement. Create compelling video scripts that are factual but presented in an engaging, slightly provocative way."
+            },
+            {
+              "role": "user",
+              "content": "Topic: {{ $('Topic Selector').item.json.selectedTopic }}\\n\\nResearch Data: {{ $('YouTube Research').item.json }}\\n\\nCreate a 10-minute video script with:\\n1. Hook (first 15 seconds)\\n2. Introduction (1 minute)\\n3. Main content (7-8 minutes with 3-4 key points)\\n4. Call to action and conclusion (1 minute)\\n\\nMake it controversial but factual, designed for maximum engagement and retention."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.8,
+          "maxTokens": 3000
+        }
+      },
+      "id": "script-generator",
+      "name": "Script Generator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "your-openai-credentials",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "messageType": "multipleMessages",
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a YouTube SEO expert. Create viral titles, descriptions, and hashtags that maximize click-through rates and search visibility."
+            },
+            {
+              "role": "user",
+              "content": "Topic: {{ $('Topic Selector').item.json.selectedTopic }}\\n\\nCreate:\\n1. 5 clickbait titles (controversial but not misleading)\\n2. SEO-optimized description (200-300 words)\\n3. 20 relevant hashtags\\n4. Thumbnail text suggestions\\n\\nFocus on high CTR and controversy that drives engagement."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.9,
+          "maxTokens": 1500
+        }
+      },
+      "id": "seo-generator",
+      "name": "SEO Generator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        480
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "your-openai-credentials",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/your-voice-id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "your-elevenlabs-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $('Script Generator').item.json.choices[0].message.content }}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_multilingual_v2"
+            },
+            {
+              "name": "voice_settings",
+              "value": "{\"stability\": 0.5, \"similarity_boost\": 0.8}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "voice-generation",
+      "name": "Voice Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract title from SEO generator response\nconst seoContent = $('SEO Generator').item.json.choices[0].message.content;\nconst titles = seoContent.match(/\\d+\\..+/g) || [];\nconst selectedTitle = titles[0] ? titles[0].replace(/^\\d+\\.\\s*/, '') : 'Controversial Topic Exposed';\n\n// Create thumbnail prompt\nconst thumbnailPrompt = `Create a YouTube thumbnail for: \"${selectedTitle}\". Style: Bold text overlay, shocked expression, red arrows, dramatic lighting, controversy theme, high contrast colors, clickbait style but professional quality.`;\n\nreturn {\n  thumbnailPrompt,\n  selectedTitle,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "thumbnail-prep",
+      "name": "Thumbnail Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/images/generations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-openai-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $('Thumbnail Prep').item.json.thumbnailPrompt }}"
+            },
+            {
+              "name": "n",
+              "value": "1"
+            },
+            {
+              "name": "size",
+              "value": "1280x720"
+            },
+            {
+              "name": "quality",
+              "value": "hd"
+            }
+          ]
+        }
+      },
+      "id": "thumbnail-generation",
+      "name": "Thumbnail Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.runwayml.com/v1/generations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-runway-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "promptText",
+              "value": "Create 10-minute video about: {{ $('Topic Selector').item.json.selectedTopic }}. Style: Documentary with stock footage, text overlays, transitions. High quality, engaging visuals."
+            },
+            {
+              "name": "model",
+              "value": "gen3a_turbo"
+            },
+            {
+              "name": "duration",
+              "value": "600"
+            }
+          ]
+        }
+      },
+      "id": "video-generation",
+      "name": "Video Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine audio and video using FFmpeg command\nconst ffmpegCommand = {\n  inputs: [\n    { path: $('Video Generation').item.json.output_url },\n    { path: $('Voice Generation').item.binary.data }\n  ],\n  output: `final_video_${Date.now()}.mp4`,\n  options: [\n    '-c:v copy',\n    '-c:a aac',\n    '-map 0:v:0',\n    '-map 1:a:0',\n    '-shortest'\n  ]\n};\n\nreturn {\n  ffmpegCommand,\n  videoReady: true,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "video-processing",
+      "name": "Video Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Thumbnail Prep').item.json.selectedTitle }}",
+        "description": "={{ $('SEO Generator').item.json.choices[0].message.content.split('Description:')[1].split('Hashtags:')[0].trim() }}",
+        "tags": "={{ $('SEO Generator').item.json.choices[0].message.content.split('Hashtags:')[1] ? $('SEO Generator').item.json.choices[0].message.content.split('Hashtags:')[1].split('#').slice(1, 11).map(tag => tag.trim().split(' ')[0]).join(',') : 'trending,viral,controversial' }}",
+        "categoryId": "25",
+        "privacyStatus": "private",
+        "binaryData": true,
+        "binaryPropertyName": "video"
+      },
+      "id": "youtube-upload",
+      "name": "YouTube Upload",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1780,
+        380
+      ],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "your-youtube-credentials",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "log",
+        "message": "=Video uploaded successfully! Title: {{ $('Thumbnail Prep').item.json.selectedTitle }}\\nVideo ID: {{ $('YouTube Upload').item.json.id }}\\nStatus: {{ $('YouTube Upload').item.json.status.uploadStatus }}"
+      },
+      "id": "completion-log",
+      "name": "Completion Log",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        380
+      ]
+    }
+  ],
+  "connections": {
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Topic Selector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Topic Selector": {
+      "main": [
+        [
+          {
+            "node": "YouTube Research",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trend Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Research": {
+      "main": [
+        [
+          {
+            "node": "Script Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trend Analysis": {
+      "main": [
+        [
+          {
+            "node": "SEO Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Script Generator": {
+      "main": [
+        [
+          {
+            "node": "Voice Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SEO Generator": {
+      "main": [
+        [
+          {
+            "node": "Thumbnail Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Voice Generation": {
+      "main": [
+        [
+          {
+            "node": "Video Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thumbnail Prep": {
+      "main": [
+        [
+          {
+            "node": "Thumbnail Generation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Video Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Thumbnail Generation": {
+      "main": [
+        [
+          {
+            "node": "Video Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video Generation": {
+      "main": [
+        [
+          {
+            "node": "Video Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video Processing": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Upload": {
+      "main": [
+        [
+          {
+            "node": "Completion Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-01T00:00:00.000Z",
+  "versionId": "1"
+}

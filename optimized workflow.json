@@ -1,0 +1,538 @@
+{
+  "name": "Optimized YouTube Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "id": "c8decbea-f606-4257-ab54-15f862c5d5e9",
+      "name": "Trigger (12h)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [400, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Optimized topics for short-form content with high engagement potential\nconst shortFormTopics = [\n  \"5 AI tools everyone uses wrong\",\n  \"Why this celebrity scandal broke the internet\",\n  \"The truth about remote work nobody tells you\",\n  \"3 money mistakes destroying your future\",\n  \"This social media trend is actually dangerous\",\n  \"Why Bitcoin crashed (and what's next)\",\n  \"The psychology trick that controls your mind\",\n  \"5 productivity hacks that actually backfire\",\n  \"Why everyone is quitting their job in 2024\",\n  \"The dark side of influencer culture exposed\",\n  \"3 investing secrets the rich don't want you to know\",\n  \"Why your smartphone is making you depressed\",\n  \"The food industry doesn't want you to know this\",\n  \"5 career myths that keep you broke\",\n  \"Why minimalism is actually toxic\"\n];\n\n// Select random topic and determine content format\nconst randomTopic = shortFormTopics[Math.floor(Math.random() * shortFormTopics.length)];\nconst contentType = Math.random() < 0.7 ? 'short' : 'regular'; // 70% shorts, 30% regular\nconst targetDuration = contentType === 'short' ? 60 : 240; // 60s for shorts, 4min for regular\n\nreturn {\n  selectedTopic: randomTopic,\n  contentType: contentType,\n  targetDuration: targetDuration,\n  timestamp: new Date().toISOString(),\n  hashtags: '#trending #viral #facts #tips #lifehacks'\n};"
+      },
+      "id": "e04f22d3-0459-4204-b541-bdb47d850a31",
+      "name": "Smart Topic Selector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, -160]
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/youtube/v3/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet"
+            },
+            {
+              "name": "q",
+              "value": "={{ $('Smart Topic Selector').item.json.selectedTopic }}"
+            },
+            {
+              "name": "type",
+              "value": "video"
+            },
+            {
+              "name": "order",
+              "value": "viewCount"
+            },
+            {
+              "name": "publishedAfter",
+              "value": "={{ new Date(Date.now() - 7*24*60*60*1000).toISOString() }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "5"
+            },
+            {
+              "name": "key",
+              "value": "your-youtube-api-key"
+            }
+          ]
+        }
+      },
+      "id": "78746b53-62bc-4f75-ab8e-a710eb670d9e",
+      "name": "Competitor Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [840, -160]
+    },
+    {
+      "parameters": {
+        "url": "https://serpapi.com/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "engine",
+              "value": "google_trends"
+            },
+            {
+              "name": "q",
+              "value": "={{ $('Smart Topic Selector').item.json.selectedTopic }}"
+            },
+            {
+              "name": "data_type",
+              "value": "TIMESERIES"
+            },
+            {
+              "name": "api_key",
+              "value": "your-serpapi-key"
+            }
+          ]
+        }
+      },
+      "id": "a3337d34-c8f4-463f-b79e-76a641beec47",
+      "name": "Trend Validation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [840, 20]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-openai-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "gpt-4"
+            },
+            {
+              "name": "messages",
+              "value": "[\n  {\n    \"role\": \"system\",\n    \"content\": \"You are a viral YouTube content creator specializing in {{ $('Smart Topic Selector').item.json.contentType === 'short' ? 'YouTube Shorts' : 'short-form videos' }}. Create engaging, hook-heavy scripts that capture attention in the first 3 seconds.\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": \"Create a {{ $('Smart Topic Selector').item.json.targetDuration }}-second script about: {{ $('Smart Topic Selector').item.json.selectedTopic }}. Include:\\n\\n1. HOOK (first 3 seconds) - shocking statement or question\\n2. PROBLEM - what people get wrong\\n3. SOLUTION - 3-5 quick actionable tips\\n4. CTA - like/subscribe/comment prompt\\n\\nStyle: Conversational, direct, slightly controversial. Use short sentences. Include natural pauses for editing cuts.\"\n  }\n]\n"
+            },
+            {
+              "name": "max_tokens",
+              "value": "800"
+            },
+            {
+              "name": "temperature",
+              "value": "0.8"
+            }
+          ]
+        }
+      },
+      "id": "script-generator-node",
+      "name": "Script Generator",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1060, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and optimize script for voice generation\nconst scriptContent = $('Script Generator').item.json.choices[0].message.content;\n\n// Clean script for TTS - remove markdown, stage directions\nconst cleanScript = scriptContent\n  .replace(/\\*\\*([^*]+)\\*\\*/g, '$1') // Remove bold\n  .replace(/\\*([^*]+)\\*/g, '$1') // Remove italics\n  .replace(/\\[.*?\\]/g, '') // Remove stage directions\n  .replace(/\\n\\n+/g, '\\n') // Clean multiple line breaks\n  .trim();\n\n// Extract title suggestions from script or create from topic\nconst topic = $('Smart Topic Selector').item.json.selectedTopic;\nconst contentType = $('Smart Topic Selector').item.json.contentType;\n\n// Generate clickbait title variations\nconst titleVariations = [\n  `${topic} (You Won't Believe This!)`,\n  `The Truth About ${topic}`,\n  `Why Everyone Is Wrong About ${topic}`,\n  `${topic} - This Changes Everything`,\n  `I Tested ${topic} For 30 Days (Results Shocking)`\n];\n\nconst selectedTitle = titleVariations[Math.floor(Math.random() * titleVariations.length)];\n\nreturn {\n  cleanScript: cleanScript,\n  originalScript: scriptContent,\n  selectedTitle: selectedTitle,\n  contentType: contentType,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "script-processor-node",
+      "name": "Script Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, -160]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "your-elevenlabs-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $('Script Processor').item.json.cleanScript }}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_turbo_v2"
+            },
+            {
+              "name": "voice_settings",
+              "value": "{\"stability\": 0.3, \"similarity_boost\": 0.9, \"style\": 0.2, \"use_speaker_boost\": true}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "343260aa-8c36-4331-8a23-fdf10973d548",
+      "name": "AI Voice Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1500, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create optimized thumbnail prompt for short-form content\nconst title = $('Script Processor').item.json.selectedTitle;\nconst contentType = $('Script Processor').item.json.contentType;\nconst topic = $('Smart Topic Selector').item.json.selectedTopic;\n\n// Thumbnail style based on content type\nconst thumbnailStyle = contentType === 'short' ? \n  'YouTube Shorts thumbnail: Vertical 9:16 format, mobile-optimized' : \n  'YouTube thumbnail: 16:9 format, desktop and mobile optimized';\n\nconst thumbnailPrompt = `${thumbnailStyle}. Title: \"${title}\". \nStyle requirements:\n- Bold, readable text overlay (max 6 words)\n- Shocked/surprised facial expression or reaction\n- High contrast colors (red, yellow, white text)\n- Professional quality but attention-grabbing\n- Clean background, focus on main subject\n- Emotion-triggering visual elements\n- No copyright content\n- Optimized for small screens`;\n\n// Generate description with hashtags\nconst description = `${topic}\\n\\n🔥 TIMESTAMPS:\\n0:00 - Hook\\n0:03 - The Problem\\n0:30 - Solutions\\n${contentType === 'short' ? '0:50' : '3:30'} - Call to Action\\n\\n💡 What did you think? Comment below!\\n\\n${$('Smart Topic Selector').item.json.hashtags}`;\n\nreturn {\n  thumbnailPrompt,\n  selectedTitle: title,\n  description,\n  contentType,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "ddb7b517-05c2-4a51-802a-035ca4927971",
+      "name": "Content Optimizer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1720, -80]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/images/generations",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-openai-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $('Content Optimizer').item.json.thumbnailPrompt }}"
+            },
+            {
+              "name": "model",
+              "value": "dall-e-3"
+            },
+            {
+              "name": "n",
+              "value": "1"
+            },
+            {
+              "name": "size",
+              "value": "={{ $('Content Optimizer').item.json.contentType === 'short' ? '1024x1792' : '1792x1024' }}"
+            },
+            {
+              "name": "quality",
+              "value": "hd"
+            },
+            {
+              "name": "style",
+              "value": "vivid"
+            }
+          ]
+        }
+      },
+      "id": "822a880e-96c5-48a2-90c9-8890770f8c95",
+      "name": "Smart Thumbnail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1500, 20]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create video generation prompt optimized for short content\nconst topic = $('Smart Topic Selector').item.json.selectedTopic;\nconst duration = $('Smart Topic Selector').item.json.targetDuration;\nconst contentType = $('Smart Topic Selector').item.json.contentType;\nconst script = $('Script Processor').item.json.originalScript;\n\n// Video style based on content type\nconst videoStyle = contentType === 'short' ? \n  'Vertical 9:16 format, fast-paced cuts every 2-3 seconds, mobile-first design' : \n  'Horizontal 16:9 format, dynamic cuts every 3-5 seconds, engaging visuals';\n\nconst videoPrompt = `Create ${duration}-second video about: ${topic}\n\nVideo requirements:\n- ${videoStyle}\n- Hook viewers in first 3 seconds\n- Stock footage + motion graphics\n- Text overlays for key points\n- Smooth transitions\n- High retention editing style\n- Professional but engaging tone\n- No talking heads, focus on visuals\n- Fast-paced to maintain attention\n\nScript context: ${script.substring(0, 200)}...`;\n\nreturn {\n  videoPrompt,\n  duration,\n  contentType,\n  aspectRatio: contentType === 'short' ? '9:16' : '16:9',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "video-prep-node",
+      "name": "Video Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, -80]
+    },
+    {
+      "parameters": {
+        "url": "https://api.runwayml.com/v1/image_to_video",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer your-runway-key"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "promptText",
+              "value": "={{ $('Video Prep').item.json.videoPrompt }}"
+            },
+            {
+              "name": "model",
+              "value": "gen3a_turbo"
+            },
+            {
+              "name": "duration",
+              "value": "={{ $('Video Prep').item.json.duration / 10 }}"
+            },
+            {
+              "name": "aspect_ratio",
+              "value": "={{ $('Video Prep').item.json.aspectRatio }}"
+            },
+            {
+              "name": "resolution",
+              "value": "720p"
+            }
+          ]
+        }
+      },
+      "id": "fc6be85c-85d6-4938-809f-cb67fcc31f9e",
+      "name": "Fast Video Gen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1720, -160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Optimized video processing for short content\nconst contentType = $('Content Optimizer').item.json.contentType;\nconst videoUrl = $('Fast Video Gen').item.json.output_url;\nconst audioData = $('AI Voice Generation').item.binary.data;\n\n// FFmpeg optimization for different content types\nconst ffmpegCommand = {\n  inputs: [\n    { path: videoUrl },\n    { path: audioData }\n  ],\n  output: `${contentType}_video_${Date.now()}.mp4`,\n  options: contentType === 'short' ? [\n    // YouTube Shorts optimization\n    '-c:v libx264',\n    '-preset fast',\n    '-crf 23',\n    '-c:a aac',\n    '-b:a 128k',\n    '-ar 44100',\n    '-vf \"scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2\"',\n    '-r 30',\n    '-map 0:v:0',\n    '-map 1:a:0',\n    '-shortest',\n    '-movflags +faststart'\n  ] : [\n    // Regular video optimization\n    '-c:v libx264',\n    '-preset fast',\n    '-crf 21',\n    '-c:a aac',\n    '-b:a 192k',\n    '-ar 44100',\n    '-vf \"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2\"',\n    '-r 30',\n    '-map 0:v:0',\n    '-map 1:a:0',\n    '-shortest',\n    '-movflags +faststart'\n  ]\n};\n\nreturn {\n  ffmpegCommand,\n  videoReady: true,\n  contentType,\n  outputFile: `${contentType}_video_${Date.now()}.mp4`,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "7784bd7c-0a1a-49c3-a545-f24b509128e6",
+      "name": "Smart Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1940, -160]
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Content Optimizer').item.json.selectedTitle }}",
+        "description": "={{ $('Content Optimizer').item.json.description }}",
+        "regionCode": "US",
+        "categoryId": "22",
+        "privacyStatus": "public",
+        "options": {
+          "thumbnailBinaryPropertyName": "thumbnail",
+          "tags": "trending,viral,tips,facts,lifehacks,motivation,productivity,money,success,psychology"
+        }
+      },
+      "id": "d246501e-5152-4d97-9276-f90e758b102e",
+      "name": "Auto Upload",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [2160, -160],
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "aO373XYJiscnFGDZ",
+          "name": "YouTube account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analytics and success metrics\nconst uploadResult = $('Auto Upload').item.json;\nconst contentType = $('Smart Processing').item.json.contentType;\nconst topic = $('Smart Topic Selector').item.json.selectedTopic;\n\nconst completionReport = {\n  status: 'SUCCESS',\n  contentType: contentType,\n  topic: topic,\n  videoId: uploadResult.id,\n  title: $('Content Optimizer').item.json.selectedTitle,\n  uploadTime: new Date().toISOString(),\n  videoUrl: `https://youtube.com/watch?v=${uploadResult.id}`,\n  optimizations: [\n    'Smart topic selection',\n    'Competitor research',\n    'Trend validation',\n    'AI script generation',\n    'Voice synthesis',\n    'Auto thumbnail',\n    'Format optimization',\n    'SEO metadata'\n  ]\n};\n\nconsole.log('=== UPLOAD COMPLETE ===');\nconsole.log(JSON.stringify(completionReport, null, 2));\n\nreturn completionReport;"
+      },
+      "id": "2197216d-f886-41ee-978d-76dce5d12cb0",
+      "name": "Success Analytics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2380, -160]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Trigger (12h)": {
+      "main": [
+        [
+          {
+            "node": "Smart Topic Selector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Topic Selector": {
+      "main": [
+        [
+          {
+            "node": "Competitor Research",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Trend Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Competitor Research": {
+      "main": [
+        [
+          {
+            "node": "Script Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trend Validation": {
+      "main": [
+        [
+          {
+            "node": "Script Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Script Generator": {
+      "main": [
+        [
+          {
+            "node": "Script Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Script Processor": {
+      "main": [
+        [
+          {
+            "node": "AI Voice Generation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Content Optimizer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Video Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Voice Generation": {
+      "main": [
+        [
+          {
+            "node": "Smart Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content Optimizer": {
+      "main": [
+        [
+          {
+            "node": "Smart Thumbnail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Thumbnail": {
+      "main": [
+        [
+          {
+            "node": "Smart Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video Prep": {
+      "main": [
+        [
+          {
+            "node": "Fast Video Gen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fast Video Gen": {
+      "main": [
+        [
+          {
+            "node": "Smart Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Processing": {
+      "main": [
+        [
+          {
+            "node": "Auto Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Upload": {
+      "main": [
+        [
+          {
+            "node": "Success Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,815 @@
+{
+  "name": "Advanced Video Generation Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a creative AI that generates engaging video ideas. Create a compelling video concept with title, description, and visual elements."
+            },
+            {
+              "role": "user", 
+              "content": "Generate a creative video idea for today's content"
+            }
+          ]
+        }
+      },
+      "id": "ideas-ai-agent",
+      "name": "Ideas AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.chatOpenAi",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "your-google-sheet-id",
+        "sheetName": "Ideas",
+        "columnToMatchOn": "timestamp",
+        "valuesToMatchOn": "={{ new Date().toISOString() }}",
+        "options": {}
+      },
+      "id": "log-idea",
+      "name": "Log the Idea", 
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a prompt engineering expert. Take the video idea and create detailed prompts for video generation, including visual descriptions, camera angles, and style preferences."
+            },
+            {
+              "role": "user",
+              "content": "Convert this idea into detailed video generation prompts: {{ $json.choices[0].message.content }}"
+            }
+          ]
+        }
+      },
+      "id": "prompts-ai-agent", 
+      "name": "Prompts AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.chatOpenAi",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.video_service }}",
+              "rightValue": "veo3",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "video-service-switch",
+      "name": "Video Service Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.google.com/v1/videos:generate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "prompt",
+              "value": "={{ $json.video_prompt }}"
+            },
+            {
+              "name": "duration",
+              "value": "10"
+            },
+            {
+              "name": "aspect_ratio",
+              "value": "16:9"
+            },
+            {
+              "name": "quality",
+              "value": "high"
+            }
+          ]
+        }
+      },
+      "id": "veo3-generate",
+      "name": "Veo3 Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "url": "https://api.minimax.chat/v1/video_generation",
+        "authentication": "predefinedCredentialType", 
+        "nodeCredentialType": "minimaxApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model", 
+              "value": "video-01"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.video_prompt }}"
+            },
+            {
+              "name": "prompt_optimizer",
+              "value": true
+            }
+          ]
+        }
+      },
+      "id": "minimax-generate",
+      "name": "Minimax Generate Video",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.2,
+      "position": [1120, 420]
+    },
+    {
+      "parameters": {
+        "url": "https://api.runwayml.com/v1/video_generations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "runwayApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type", 
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "promptText",
+              "value": "={{ $json.video_prompt }}"
+            },
+            {
+              "name": "seed",
+              "value": "={{ Math.floor(Math.random() * 1000000) }}"
+            }
+          ]
+        }
+      },
+      "id": "runway-generate",
+      "name": "Runway Generate Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2, 
+      "position": [1120, 540]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wait-for-generation",
+      "name": "Wait for Video Generation",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.status_url || $json.task_id }}",
+        "options": {}
+      },
+      "id": "get-video-status",
+      "name": "Get Video Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.tts_service }}",
+              "rightValue": "elevenlabs",
+              "operator": {
+                "type": "string", 
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "tts-service-switch",
+      "name": "TTS Service Switch", 
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "elevenlabsApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.script_content }}"
+            },
+            {
+              "name": "voice_settings",
+              "value": {
+                "stability": 0.5,
+                "similarity_boost": 0.5
+              }
+            }
+          ]
+        }
+      },
+      "id": "elevenlabs-tts",
+      "name": "ElevenLabs TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 180]
+    },
+    {
+      "parameters": {
+        "url": "https://api.openai.com/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi", 
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "tts-1"
+            },
+            {
+              "name": "input",
+              "value": "={{ $json.script_content }}"
+            },
+            {
+              "name": "voice",
+              "value": "alloy"
+            }
+          ]
+        }
+      },
+      "id": "openai-tts",
+      "name": "OpenAI TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://api.murf.ai/v1/speech/generate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "murfApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        }, 
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "voiceId",
+              "value": "en-US-davis"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.script_content }}"
+            },
+            {
+              "name": "format",
+              "value": "MP3"
+            }
+          ]
+        }
+      },
+      "id": "murf-tts",
+      "name": "Murf.ai TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 420]
+    },
+    {
+      "parameters": {
+        "url": "https://api.speechify.com/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "speechifyApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": "={{ $json.script_content }}"
+            },
+            {
+              "name": "voice_id",
+              "value": "henry"
+            },
+            {
+              "name": "audio_format",
+              "value": "mp3"
+            }
+          ]
+        }
+      },
+      "id": "speechify-tts",
+      "name": "Speechify TTS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 540]
+    },
+    {
+      "parameters": {
+        "url": "https://api.azure.microsoft.com/cognitiveservices/v1",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "microsoftAzureApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/ssml+xml"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text",
+        "body": "<speak version='1.0' xml:lang='en-US'><voice xml:lang='en-US' xml:gender='Female' name='en-US-JennyNeural'>{{ $json.script_content }}</voice></speak>"
+      },
+      "id": "azure-tts",
+      "name": "Azure TTS (Free)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1780, 660]
+    },
+    {
+      "parameters": {
+        "url": "https://cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "input",
+              "value": {
+                "text": "={{ $json.script_content }}"
+              }
+            },
+            {
+              "name": "voice",
+              "value": {
+                "languageCode": "en-US",
+                "name": "en-US-Standard-D"
+              }
+            },
+            {
+              "name": "audioConfig",
+              "value": {
+                "audioEncoding": "MP3"
+              }
+            }
+          ]
+        }
+      },
+      "id": "google-tts",
+      "name": "Google Cloud TTS",
+      "type": "n8n-nodes-base.httpRequest", 
+      "typeVersion": 4.2,
+      "position": [1780, 780]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "uploadType": "media",
+        "resource": {
+          "snippet": {
+            "title": "={{ $json.video_title }}",
+            "description": "={{ $json.video_description }}",
+            "tags": ["AI", "Generated", "Content"],
+            "categoryId": "22"
+          },
+          "status": {
+            "privacyStatus": "private"
+          }
+        }
+      },
+      "id": "youtube-upload",
+      "name": "YouTube Upload",
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 2,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "your-google-sheet-id",
+        "sheetName": "Final Videos",
+        "columnToMatchOn": "timestamp",
+        "valuesToMatchOn": "={{ new Date().toISOString() }}",
+        "options": {}
+      },
+      "id": "log-final-video",
+      "name": "Log Final Video",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Set default services if not specified\nif (!$input.all()[0].json.video_service) {\n  $input.all()[0].json.video_service = 'veo3'; // Default video service\n}\n\nif (!$input.all()[0].json.tts_service) {\n  $input.all()[0].json.tts_service = 'openai'; // Default TTS service  \n}\n\n// Extract video prompt from AI agent response\nconst aiResponse = $input.all()[0].json.choices[0].message.content;\nconst promptMatch = aiResponse.match(/Video Prompt: (.*?)(?:\\n|$)/i);\n$input.all()[0].json.video_prompt = promptMatch ? promptMatch[1] : aiResponse;\n\n// Extract script content\nconst scriptMatch = aiResponse.match(/Script: (.*?)(?:\\n|$)/i);\n$input.all()[0].json.script_content = scriptMatch ? scriptMatch[1] : 'Generated video content';\n\nreturn $input.all();"
+      },
+      "id": "data-processor",
+      "name": "Data Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 60]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Ideas AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ideas AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Log the Idea",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the Idea": {
+      "main": [
+        [
+          {
+            "node": "Prompts AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prompts AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Data Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Processor": {
+      "main": [
+        [
+          {
+            "node": "Video Service Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Video Service Switch": {
+      "main": [
+        [
+          {
+            "node": "Veo3 Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Minimax Generate Video", 
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Runway Generate Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veo3 Generate Video": {
+      "main": [
+        [
+          {
+            "node": "Wait for Video Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Minimax Generate Video": {
+      "main": [
+        [
+          {
+            "node": "Wait for Video Generation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Runway Generate Video": {
+      "main": [
+        [
+          {
+            "node": "Wait for Video Generation",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Video Generation": {
+      "main": [
+        [
+          {
+            "node": "Get Video Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Status": {
+      "main": [
+        [
+          {
+            "node": "TTS Service Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Service Switch": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OpenAI TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Murf.ai TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Speechify TTS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Azure TTS (Free)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google Cloud TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs TTS": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI TTS": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Murf.ai TTS": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Speechify TTS": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure TTS (Free)": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Cloud TTS": {
+      "main": [
+        [
+          {
+            "node": "YouTube Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Upload": {
+      "main": [
+        [
+          {
+            "node": "Log Final Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-23T00:00:00.000Z",
+  "versionId": "1"
+}
